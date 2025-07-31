@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Eye, Loader2 } from 'lucide-react'
+import { Search, Plus, Filter, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useLeads } from '../hooks/useLeads'
 import LeadModal from './LeadModal'
+import ExportModal from './ExportModal'
 
 const Leads = () => {
   const { leads, loading, error, createLead, updateLead, deleteLead } = useLeads()
@@ -14,6 +15,52 @@ const Leads = () => {
 
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
+
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportFilters, setExportFilters] = useState({
+    vendedor: '',
+    pipeline: '',
+    fuente: '',
+    estado: '',
+    desde: '',
+    hasta: ''
+  })
+
+  const handleExport = () => {
+    const filtered = leads.filter(lead => {
+      const matchVendedor = !exportFilters.vendedor || lead.vendedor === exportFilters.vendedor
+      const matchPipeline = !exportFilters.pipeline || lead.pipeline === exportFilters.pipeline
+      const matchFuente = !exportFilters.fuente || lead.fuente === exportFilters.fuente
+      const matchEstado = !exportFilters.estado || lead.estado === exportFilters.estado
+
+      const registro = new Date(lead.registro)
+      const desde = exportFilters.desde ? new Date(exportFilters.desde) : null
+      const hasta = exportFilters.hasta ? new Date(exportFilters.hasta) : null
+      const matchFecha = (!desde || registro >= desde) && (!hasta || registro <= hasta)
+
+      return matchVendedor && matchPipeline && matchFuente && matchEstado && matchFecha
+    })
+
+    const csvRows = []
+    const headers = Object.keys(filtered[0] || {}).join(',')
+    csvRows.push(headers)
+
+    filtered.forEach(lead => {
+      const row = Object.values(lead).map(val =>
+        typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
+      ).join(',')
+      csvRows.push(row)
+    })
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'leads_export.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+    setShowExportModal(false)
+  }
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,13 +127,21 @@ const Leads = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Leads</h1>
             <p className="text-gray-600">Gestiona todos tus leads y prospectos</p>
           </div>
-          <Button
-            onClick={handleCreateLead}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-          >
-            <Plus size={20} />
-            <span>Agregar Lead</span>
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              onClick={() => setShowExportModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            >
+              📁 Exportar Leads
+            </Button>
+            <Button
+              onClick={handleCreateLead}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+            >
+              <Plus size={20} />
+              <span>Agregar Lead</span>
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -194,7 +249,7 @@ const Leads = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       <LeadModal
         isOpen={showModal}
         onClose={() => {
@@ -204,6 +259,14 @@ const Leads = () => {
         onSave={handleSaveLead}
         lead={editingLead}
         loading={modalLoading}
+      />
+
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        filters={exportFilters}
+        setFilters={setExportFilters}
+        onExport={handleExport}
       />
     </div>
   )
