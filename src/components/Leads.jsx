@@ -12,6 +12,21 @@ const Leads = () => {
   const [editingLead, setEditingLead] = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
 
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = lead.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.telefono.includes(searchTerm)
+    const matchesFilter = filterStage === 'all' || lead.pipeline === filterStage
+    return matchesSearch && matchesFilter && lead.estado === 'Activo'
+  })
+
+  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage)
+  const start = (currentPage - 1) * itemsPerPage
+  const paginatedLeads = filteredLeads.slice(start, start + itemsPerPage)
+
   const getPipelineColor = (pipeline) => {
     const colors = {
       'Prospección': 'bg-blue-100 text-blue-800',
@@ -21,14 +36,6 @@ const Leads = () => {
     }
     return colors[pipeline] || 'bg-gray-100 text-gray-800'
   }
-
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.telefono.includes(searchTerm)
-    const matchesFilter = filterStage === 'all' || lead.pipeline === filterStage
-    return matchesSearch && matchesFilter && lead.estado === 'Activo'
-  })
 
   const handleCreateLead = () => {
     setEditingLead(null)
@@ -43,13 +50,10 @@ const Leads = () => {
   const handleSaveLead = async (leadData) => {
     setModalLoading(true)
     try {
-      let result
-      if (editingLead) {
-        result = await updateLead(editingLead.id, leadData)
-      } else {
-        result = await createLead(leadData)
-      }
-      
+      const result = editingLead
+        ? await updateLead(editingLead.id, leadData)
+        : await createLead(leadData)
+
       if (result.success) {
         setShowModal(false)
         setEditingLead(null)
@@ -67,31 +71,6 @@ const Leads = () => {
     }
   }
 
-  if (loading && leads.length === 0) {
-    return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Cargando leads...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 bg-gray-50 min-h-screen">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="text-red-800 font-medium">Error al cargar los leads</h3>
-          <p className="text-red-600 text-sm mt-1">{error}</p>
-          <p className="text-red-600 text-sm mt-2">
-            Asegúrate de que el backend esté ejecutándose y Google Sheets esté configurado correctamente.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -101,7 +80,7 @@ const Leads = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Leads</h1>
             <p className="text-gray-600">Gestiona todos tus leads y prospectos</p>
           </div>
-          <Button 
+          <Button
             onClick={handleCreateLead}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
           >
@@ -145,85 +124,28 @@ const Leads = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lead
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fuente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pipeline
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vendedor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Registro
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pipeline</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registro</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredLeads.map((lead) => (
+              {paginatedLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{lead.nombre}</div>
-                      <div className="text-sm text-gray-500">{lead.producto_interes}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm text-gray-900">{lead.telefono}</div>
-                      <div className="text-sm text-gray-500">{lead.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {lead.fuente}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPipelineColor(lead.pipeline)}`}>
-                      {lead.pipeline}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {lead.vendedor}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4">{lead.nombre}</td>
+                  <td className="px-6 py-4">{lead.telefono}<br /><span className="text-gray-500 text-sm">{lead.email}</span></td>
+                  <td className="px-6 py-4">{lead.fuente}</td>
+                  <td className="px-6 py-4"><span className={`inline-flex px-2 py-1 text-xs rounded-full ${getPipelineColor(lead.pipeline)}`}>{lead.pipeline}</span></td>
+                  <td className="px-6 py-4">{lead.vendedor}</td>
+                  <td className="px-6 py-4">{lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}</td>
+                  <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        className="text-blue-600 hover:text-indigo-900 p-1 rounded"
-                        title="Ver detalles"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleEditLead(lead)}
-                        className="text-gray-600 hover:text-gray-900 p-1 rounded"
-                        title="Editar"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteLead(lead.id)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-900 p-1 rounded">
-                        <MoreHorizontal size={16} />
-                      </button>
+                      <button onClick={() => handleEditLead(lead)} title="Editar"><Edit size={16} /></button>
+                      <button onClick={() => handleDeleteLead(lead.id)} title="Eliminar"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -232,37 +154,42 @@ const Leads = () => {
           </table>
         </div>
 
-        {filteredLeads.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No se encontraron leads que coincidan con los filtros.</p>
-          </div>
-        )}
-
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 flex justify-between sm:hidden">
-              <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Anterior
-              </button>
-              <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Siguiente
-              </button>
-            </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Mostrando <span className="font-medium">1</span> a <span className="font-medium">{filteredLeads.length}</span> de{' '}
-                  <span className="font-medium">{filteredLeads.length}</span> resultados
-                </p>
-              </div>
-              {loading && (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                  <span className="text-sm text-gray-600">Sincronizando...</span>
-                </div>
-              )}
-            </div>
+        <div className="bg-white px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+          <div className="flex space-x-2 items-center">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm">Ver:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border px-2 py-1 rounded text-sm"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value={filteredLeads.length}>Todos</option>
+            </select>
+            <span className="text-sm text-gray-600">
+              Mostrando {start + 1} a {Math.min(start + itemsPerPage, filteredLeads.length)} de {filteredLeads.length}
+            </span>
           </div>
         </div>
       </div>
@@ -283,4 +210,3 @@ const Leads = () => {
 }
 
 export default Leads
-
