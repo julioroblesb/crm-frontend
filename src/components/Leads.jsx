@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Filter, Edit, Trash2 } from 'lucide-react'
+import { Search, Plus, Filter, Edit, Trash2, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useLeads } from '../hooks/useLeads'
+import { useOptions } from '../hooks/useOptions'
 import LeadModal from './LeadModal'
 import ExportModal from './ExportModal'
 
 const Leads = () => {
   const { leads, loading, error, createLead, updateLead, deleteLead } = useLeads()
+  const { options, loading: optionsLoading } = useOptions()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStage, setFilterStage] = useState('all')
-  const [filterEstado, setFilterEstado] = useState('all') // Nuevo filtro por estado
+  const [filterEstado, setFilterEstado] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [editingLead, setEditingLead] = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
+
+  // Estados para edición inline
+  const [editingCell, setEditingCell] = useState(null) // { leadId, field }
+  const [editingValue, setEditingValue] = useState('')
 
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
@@ -32,7 +38,7 @@ const Leads = () => {
     setExportFilters(prev => ({
       ...prev,
       pipeline: filterStage === 'all' ? '' : filterStage,
-      estado: filterEstado === 'all' ? '' : filterEstado // Sincronizar filtro de estado
+      estado: filterEstado === 'all' ? '' : filterEstado
     }))
   }, [filterStage, filterEstado])
 
@@ -81,8 +87,6 @@ const Leads = () => {
     const matchPipeline = !exportFilters.pipeline || lead.pipeline === exportFilters.pipeline
     const matchFuente = !exportFilters.fuente || lead.fuente === exportFilters.fuente
     const matchVendedor = !exportFilters.vendedor || lead.vendedor === exportFilters.vendedor
-    
-    // Nuevo filtro por estado - reemplaza el filtro hardcodeado
     const matchEstado = filterEstado === 'all' || lead.estado === filterEstado
 
     const registro = new Date(lead.registro)
@@ -90,7 +94,6 @@ const Leads = () => {
     const hasta = exportFilters.hasta ? new Date(exportFilters.hasta) : null
     const matchFecha = (!desde || registro >= desde) && (!hasta || registro <= hasta)
 
-    // Removido: && lead.estado === 'Activo' (filtro hardcodeado)
     return matchesSearch && matchPipeline && matchFuente && matchVendedor && matchFecha && matchEstado
   })
 
@@ -108,13 +111,117 @@ const Leads = () => {
     return colors[pipeline] || 'bg-gray-100 text-gray-800'
   }
 
-  // Función para obtener el color del estado
   const getEstadoColor = (estado) => {
     const colors = {
       'Activo': 'bg-green-100 text-green-800',
       'Inactivo': 'bg-red-100 text-red-800'
     }
     return colors[estado] || 'bg-gray-100 text-gray-800'
+  }
+
+  // Funciones para edición inline
+  const handleCellClick = (leadId, field, currentValue) => {
+    setEditingCell({ leadId, field })
+    setEditingValue(currentValue)
+  }
+
+  const handleCellSave = async () => {
+    if (!editingCell) return
+
+    const { leadId, field } = editingCell
+    const leadData = { [field]: editingValue }
+
+    try {
+      await updateLead(leadId, leadData)
+      setEditingCell(null)
+      setEditingValue('')
+    } catch (error) {
+      console.error('Error updating lead:', error)
+    }
+  }
+
+  const handleCellCancel = () => {
+    setEditingCell(null)
+    setEditingValue('')
+  }
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleCellSave()
+    } else if (e.key === 'Escape') {
+      handleCellCancel()
+    }
+  }
+
+  const renderEditableCell = (lead, field, displayValue) => {
+    const isEditing = editingCell?.leadId === lead.id && editingCell?.field === field
+    const fieldOptions = options[field] || []
+
+    if (isEditing) {
+      return (
+        <div className="flex items-center space-x-1">
+          {field === 'fuente' || field === 'pipeline' || field === 'estado' || field === 'vendedor' ? (
+            <select
+              value={editingValue}
+              onChange={(e) => setEditingValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="px-2 py-1 border rounded text-sm min-w-[120px]"
+              autoFocus
+            >
+              <option value="">Seleccionar...</option>
+              {fieldOptions.map((option, index) => (
+                <option key={index} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={editingValue}
+              onChange={(e) => setEditingValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="px-2 py-1 border rounded text-sm min-w-[120px]"
+              autoFocus
+            />
+          )}
+          <button
+            onClick={handleCellSave}
+            className="text-green-600 hover:text-green-800"
+            title="Guardar"
+          >
+            <Check size={14} />
+          </button>
+          <button
+            onClick={handleCellCancel}
+            className="text-red-600 hover:text-red-800"
+            title="Cancelar"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        onClick={() => handleCellClick(lead.id, field, displayValue)}
+        className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+        title="Clic para editar"
+      >
+        {field === 'pipeline' ? (
+          <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getPipelineColor(displayValue)}`}>
+            {displayValue}
+          </span>
+        ) : field === 'estado' ? (
+          <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getEstadoColor(displayValue)}`}>
+            {displayValue}
+          </span>
+        ) : (
+          displayValue || '-'
+        )}
+      </div>
+    )
   }
 
   const handleCreateLead = () => {
@@ -198,20 +305,19 @@ const Leads = () => {
                 onChange={(e) => setFilterStage(e.target.value)}
               >
                 <option value="all">Todas las etapas</option>
-                <option value="Prospección">Prospección</option>
-                <option value="Contacto">Contacto</option>
-                <option value="Negociación">Negociación</option>
-                <option value="Cierre">Cierre</option>
+                {options.pipeline?.map((option, index) => (
+                  <option key={index} value={option}>{option}</option>
+                ))}
               </select>
-              {/* Nuevo filtro por estado */}
               <select
                 className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 value={filterEstado}
                 onChange={(e) => setFilterEstado(e.target.value)}
               >
                 <option value="all">Todos los estados</option>
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
+                {options.estado?.map((option, index) => (
+                  <option key={index} value={option}>{option}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -267,16 +373,41 @@ const Leads = () => {
               {paginatedLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">{lead.nombre}</td>
-                  <td className="px-6 py-4">{lead.telefono}<br /><span className="text-gray-500 text-sm">{lead.email}</span></td>
-                  <td className="px-6 py-4">{lead.fuente}</td>
-                  <td className="px-6 py-4"><span className={`inline-flex px-2 py-1 text-xs rounded-full ${getPipelineColor(lead.pipeline)}`}>{lead.pipeline}</span></td>
-                  <td className="px-6 py-4"><span className={`inline-flex px-2 py-1 text-xs rounded-full ${getEstadoColor(lead.estado)}`}>{lead.estado}</span></td>
-                  <td className="px-6 py-4">{lead.vendedor}</td>
-                  <td className="px-6 py-4">{lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}</td>
+                  <td className="px-6 py-4">
+                    {lead.telefono}<br />
+                    <span className="text-gray-500 text-sm">{lead.email}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'fuente', lead.fuente)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'pipeline', lead.pipeline)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'estado', lead.estado)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'vendedor', lead.vendedor)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      <button onClick={() => handleEditLead(lead)} title="Editar"><Edit size={16} /></button>
-                      <button onClick={() => handleDeleteLead(lead.id)} title="Eliminar"><Trash2 size={16} /></button>
+                      <button 
+                        onClick={() => handleEditLead(lead)} 
+                        title="Editar"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteLead(lead.id)} 
+                        title="Eliminar"
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -59,6 +59,35 @@ class ApiService {
     return this.request(`/leads/${leadId}`);
   }
 
+  /* ──────────────── Opciones ──────────────── */
+  getOptions() {
+    return this.request('/options');
+  }
+
+  getFieldOptions(field) {
+    return this.request(`/options/${field}`);
+  }
+
+  addOption(field, option) {
+    return this.request(`/options/${field}`, {
+      method: 'POST',
+      body: JSON.stringify({ option }),
+    });
+  }
+
+  updateOption(field, oldOption, newOption) {
+    return this.request(`/options/${field}/${encodeURIComponent(oldOption)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ new_option: newOption }),
+    });
+  }
+
+  deleteOption(field, option) {
+    return this.request(`/options/${field}/${encodeURIComponent(option)}`, {
+      method: 'DELETE',
+    });
+  }
+
   /* ─────────────── Dashboard ─────────────── */
   getDashboardMetrics() {
     return this.request('/dashboard/metrics');
@@ -89,3 +118,4 @@ class ApiService {
 
 export const apiService = new ApiService();
 export default apiService;
+
