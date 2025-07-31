@@ -9,6 +9,7 @@ const Leads = () => {
   const { leads, loading, error, createLead, updateLead, deleteLead } = useLeads()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStage, setFilterStage] = useState('all')
+  const [filterEstado, setFilterEstado] = useState('all') // Nuevo filtro por estado
   const [showModal, setShowModal] = useState(false)
   const [editingLead, setEditingLead] = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
@@ -30,9 +31,10 @@ const Leads = () => {
   useEffect(() => {
     setExportFilters(prev => ({
       ...prev,
-      pipeline: filterStage === 'all' ? '' : filterStage
+      pipeline: filterStage === 'all' ? '' : filterStage,
+      estado: filterEstado === 'all' ? '' : filterEstado // Sincronizar filtro de estado
     }))
-  }, [filterStage])
+  }, [filterStage, filterEstado])
 
   const handleExport = () => {
     const filtered = leads.filter(lead => {
@@ -79,13 +81,17 @@ const Leads = () => {
     const matchPipeline = !exportFilters.pipeline || lead.pipeline === exportFilters.pipeline
     const matchFuente = !exportFilters.fuente || lead.fuente === exportFilters.fuente
     const matchVendedor = !exportFilters.vendedor || lead.vendedor === exportFilters.vendedor
+    
+    // Nuevo filtro por estado - reemplaza el filtro hardcodeado
+    const matchEstado = filterEstado === 'all' || lead.estado === filterEstado
 
     const registro = new Date(lead.registro)
     const desde = exportFilters.desde ? new Date(exportFilters.desde) : null
     const hasta = exportFilters.hasta ? new Date(exportFilters.hasta) : null
     const matchFecha = (!desde || registro >= desde) && (!hasta || registro <= hasta)
 
-    return matchesSearch && matchPipeline && matchFuente && matchVendedor && matchFecha && lead.estado === 'Activo'
+    // Removido: && lead.estado === 'Activo' (filtro hardcodeado)
+    return matchesSearch && matchPipeline && matchFuente && matchVendedor && matchFecha && matchEstado
   })
 
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage)
@@ -100,6 +106,15 @@ const Leads = () => {
       'Cierre': 'bg-green-100 text-green-800'
     }
     return colors[pipeline] || 'bg-gray-100 text-gray-800'
+  }
+
+  // Función para obtener el color del estado
+  const getEstadoColor = (estado) => {
+    const colors = {
+      'Activo': 'bg-green-100 text-green-800',
+      'Inactivo': 'bg-red-100 text-red-800'
+    }
+    return colors[estado] || 'bg-gray-100 text-gray-800'
   }
 
   const handleCreateLead = () => {
@@ -188,6 +203,16 @@ const Leads = () => {
                 <option value="Negociación">Negociación</option>
                 <option value="Cierre">Cierre</option>
               </select>
+              {/* Nuevo filtro por estado */}
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
             </div>
           </div>
 
@@ -232,6 +257,7 @@ const Leads = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuente</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pipeline</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registro</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -244,6 +270,7 @@ const Leads = () => {
                   <td className="px-6 py-4">{lead.telefono}<br /><span className="text-gray-500 text-sm">{lead.email}</span></td>
                   <td className="px-6 py-4">{lead.fuente}</td>
                   <td className="px-6 py-4"><span className={`inline-flex px-2 py-1 text-xs rounded-full ${getPipelineColor(lead.pipeline)}`}>{lead.pipeline}</span></td>
+                  <td className="px-6 py-4"><span className={`inline-flex px-2 py-1 text-xs rounded-full ${getEstadoColor(lead.estado)}`}>{lead.estado}</span></td>
                   <td className="px-6 py-4">{lead.vendedor}</td>
                   <td className="px-6 py-4">{lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}</td>
                   <td className="px-6 py-4 text-right">
@@ -322,3 +349,4 @@ const Leads = () => {
 }
 
 export default Leads
+
