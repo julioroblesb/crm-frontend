@@ -26,6 +26,7 @@ const Leads = () => {
     hasta: ''
   })
 
+  // Sincronizar filtro de etapa visual con exportación
   useEffect(() => {
     setExportFilters(prev => ({
       ...prev,
@@ -78,14 +79,13 @@ const Leads = () => {
     const matchPipeline = !exportFilters.pipeline || lead.pipeline === exportFilters.pipeline
     const matchFuente = !exportFilters.fuente || lead.fuente === exportFilters.fuente
     const matchVendedor = !exportFilters.vendedor || lead.vendedor === exportFilters.vendedor
-    const matchEstado = !exportFilters.estado || lead.estado === exportFilters.estado
 
     const registro = new Date(lead.registro)
     const desde = exportFilters.desde ? new Date(exportFilters.desde) : null
     const hasta = exportFilters.hasta ? new Date(exportFilters.hasta) : null
     const matchFecha = (!desde || registro >= desde) && (!hasta || registro <= hasta)
 
-    return matchesSearch && matchPipeline && matchFuente && matchVendedor && matchEstado && matchFecha
+    return matchesSearch && matchPipeline && matchFuente && matchVendedor && matchFecha && lead.estado === 'Activo'
   })
 
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage)
@@ -146,10 +146,16 @@ const Leads = () => {
             <p className="text-gray-600">Gestiona todos tus leads y prospectos</p>
           </div>
           <div className="flex space-x-2">
-            <Button onClick={() => setShowExportModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+            <Button
+              onClick={() => setShowExportModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            >
               📁 Exportar Leads
             </Button>
-            <Button onClick={handleCreateLead} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+            <Button
+              onClick={handleCreateLead}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+            >
               <Plus size={20} />
               <span>Agregar Lead</span>
             </Button>
@@ -182,15 +188,6 @@ const Leads = () => {
                 <option value="Negociación">Negociación</option>
                 <option value="Cierre">Cierre</option>
               </select>
-              <select
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                value={exportFilters.estado}
-                onChange={(e) => setExportFilters({ ...exportFilters, estado: e.target.value })}
-              >
-                <option value="">Todos</option>
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
-              </select>
             </div>
           </div>
 
@@ -198,14 +195,14 @@ const Leads = () => {
             <input
               type="text"
               placeholder="Filtrar por fuente..."
-              className="border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-1/3"
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-full sm:w-1/3"
               value={exportFilters.fuente}
               onChange={(e) => setExportFilters({ ...exportFilters, fuente: e.target.value })}
             />
             <input
               type="text"
               placeholder="Filtrar por vendedor..."
-              className="border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-1/3"
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-full sm:w-1/3"
               value={exportFilters.vendedor}
               onChange={(e) => setExportFilters({ ...exportFilters, vendedor: e.target.value })}
             />
@@ -226,8 +223,82 @@ const Leads = () => {
       </div>
 
       {/* Table */}
-      {/* ... la tabla y paginación se mantiene igual ... */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pipeline</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registro</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginatedLeads.map((lead) => (
+                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">{lead.nombre}</td>
+                  <td className="px-6 py-4">{lead.telefono}<br /><span className="text-gray-500 text-sm">{lead.email}</span></td>
+                  <td className="px-6 py-4">{lead.fuente}</td>
+                  <td className="px-6 py-4"><span className={`inline-flex px-2 py-1 text-xs rounded-full ${getPipelineColor(lead.pipeline)}`}>{lead.pipeline}</span></td>
+                  <td className="px-6 py-4">{lead.vendedor}</td>
+                  <td className="px-6 py-4">{lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button onClick={() => handleEditLead(lead)} title="Editar"><Edit size={16} /></button>
+                      <button onClick={() => handleDeleteLead(lead.id)} title="Eliminar"><Trash2 size={16} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
+        {/* Pagination */}
+        <div className="bg-white px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+          <div className="flex space-x-2 items-center">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm">Ver:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border px-2 py-1 rounded text-sm"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value={filteredLeads.length}>Todos</option>
+            </select>
+            <span className="text-sm text-gray-600">
+              Mostrando {start + 1} a {Math.min(start + itemsPerPage, filteredLeads.length)} de {filteredLeads.length}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
       <LeadModal
         isOpen={showModal}
         onClose={() => {
