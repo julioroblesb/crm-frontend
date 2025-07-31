@@ -23,6 +23,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
   const [newOption, setNewOption] = useState('')
   const [editingOption, setEditingOption] = useState(null)
   const [editingValue, setEditingValue] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (lead) {
@@ -53,6 +54,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
     setErrors({})
     setShowOptionsManager(false)
     setManagingField(null)
+    setIsSubmitting(false)
   }, [lead, isOpen])
 
   const handleChange = (e) => {
@@ -88,10 +90,28 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (validateForm()) {
-      onSave(formData)
+    
+    if (isSubmitting) return // Prevenir doble envío
+    
+    console.log('Formulario enviado:', formData) // Debug
+    
+    if (!validateForm()) {
+      console.log('Validación falló:', errors) // Debug
+      return
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      console.log('Llamando onSave con:', formData) // Debug
+      await onSave(formData)
+      console.log('onSave completado') // Debug
+    } catch (error) {
+      console.error('Error en handleSubmit:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -105,8 +125,10 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
     if (!newOption.trim() || !managingField) return
     
     try {
-      await addOption(managingField, newOption.trim())
-      setNewOption('')
+      const result = await addOption(managingField, newOption.trim())
+      if (result.success) {
+        setNewOption('')
+      }
     } catch (error) {
       console.error('Error adding option:', error)
     }
@@ -121,9 +143,11 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
     if (!editingValue.trim() || !managingField || !editingOption) return
     
     try {
-      await updateOption(managingField, editingOption, editingValue.trim())
-      setEditingOption(null)
-      setEditingValue('')
+      const result = await updateOption(managingField, editingOption, editingValue.trim())
+      if (result.success) {
+        setEditingOption(null)
+        setEditingValue('')
+      }
     } catch (error) {
       console.error('Error updating option:', error)
     }
@@ -257,7 +281,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Seleccionar fuente</option>
-                    {options.fuente?.map((option, index) => (
+                    {(options.fuente || []).map((option, index) => (
                       <option key={index} value={option}>{option}</option>
                     ))}
                   </select>
@@ -301,7 +325,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Seleccionar vendedor</option>
-                    {options.vendedor?.map((option, index) => (
+                    {(options.vendedor || []).map((option, index) => (
                       <option key={index} value={option}>{option}</option>
                     ))}
                   </select>
@@ -329,7 +353,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
-                    {options.pipeline?.map((option, index) => (
+                    {(options.pipeline || ['Prospección', 'Contacto', 'Negociación', 'Cierre']).map((option, index) => (
                       <option key={index} value={option}>{option}</option>
                     ))}
                   </select>
@@ -357,7 +381,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
-                    {options.estado?.map((option, index) => (
+                    {(options.estado || ['Activo', 'Inactivo']).map((option, index) => (
                       <option key={index} value={option}>{option}</option>
                     ))}
                   </select>
@@ -385,16 +409,16 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
                   type="button"
                   onClick={onClose}
                   variant="outline"
-                  disabled={loading}
+                  disabled={loading || isSubmitting}
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || isSubmitting}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {loading ? (
+                  {(loading || isSubmitting) ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Guardando...
@@ -455,7 +479,7 @@ const LeadModal = ({ isOpen, onClose, onSave, lead = null, loading = false }) =>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Opciones existentes
                   </label>
-                  {options[managingField]?.map((option, index) => (
+                  {(options[managingField] || []).map((option, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
                       {editingOption === option ? (
                         <div className="flex items-center space-x-2 flex-1">
