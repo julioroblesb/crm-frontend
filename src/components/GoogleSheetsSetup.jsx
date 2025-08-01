@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import apiService from '../lib/api';
+import apiService from '../services/api';
 
 function GoogleSheetsSetup() {
   const [sheetId, setSheetId] = useState('');
