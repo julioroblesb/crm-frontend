@@ -7,7 +7,7 @@ import Pipeline from './components/Pipeline';
 import Calendar from './components/Calendar';
 import Cobranza from './components/Cobranza';
 import Mensajeria from './components/Mensajeria';
-import GoogleSheetsSetup from './components/ui/GoogleSheetsSetup'; // 👈 nueva importación
+import GoogleSheetsSetup from './components/GoogleSheetsSetup'; // 👈 nueva importación
 import './App.css';
 
 function App() {
