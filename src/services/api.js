@@ -90,7 +90,7 @@ class ApiService {
 
   /* ─────────────── Dashboard ─────────────── */
   getDashboardMetrics() {
-    return this.request('/dashboard/metrics');
+    return this.request('/metrics');
   }
 
   /* ─────────────── Pipeline ─────────────── */
