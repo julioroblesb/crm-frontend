@@ -1,16 +1,17 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { useState } from 'react'
-import Sidebar from './components/Sidebar'
-import Dashboard from './components/Dashboard'
-import Leads from './components/Leads'
-import Pipeline from './components/Pipeline'
-import Calendar from './components/Calendar'
-import Cobranza from './components/Cobranza'
-import Mensajeria from './components/Mensajeria'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState } from 'react';
+import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
+import Leads from './components/Leads';
+import Pipeline from './components/Pipeline';
+import Calendar from './components/Calendar';
+import Cobranza from './components/Cobranza';
+import Mensajeria from './components/Mensajeria';
+import GoogleSheetsSetup from './components/ui/GoogleSheetsSetup'; // 👈 nueva importación
+import './App.css';
 
 function App() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <Router>
@@ -19,9 +20,11 @@ function App() {
           collapsed={sidebarCollapsed} 
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
         />
-        <main className={`flex-1 overflow-auto transition-all duration-300 ${
-          sidebarCollapsed ? 'ml-16' : 'ml-64'
-        }`}>
+        <main
+          className={`flex-1 overflow-auto transition-all duration-300 ${
+            sidebarCollapsed ? 'ml-16' : 'ml-64'
+          }`}
+        >
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -30,12 +33,12 @@ function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/cobranza" element={<Cobranza />} />
             <Route path="/mensajeria" element={<Mensajeria />} />
+            <Route path="/configurar-sheets" element={<GoogleSheetsSetup />} /> {/* ✅ nueva ruta */}
           </Routes>
         </main>
       </div>
     </Router>
-  )
+  );
 }
 
-export default App
-
+export default App;
