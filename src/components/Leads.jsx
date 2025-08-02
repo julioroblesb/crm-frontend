@@ -15,10 +15,14 @@ const Leads = () => {
   const [showModal, setShowModal] = useState(false)
   const [editingLead, setEditingLead] = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
-  const [editingCell, setEditingCell] = useState(null)
+
+  // Estados para edición inline
+  const [editingCell, setEditingCell] = useState(null) // { leadId, field }
   const [editingValue, setEditingValue] = useState('')
+
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
+
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportFilters, setExportFilters] = useState({
     vendedor: '',
@@ -29,22 +33,7 @@ const Leads = () => {
     hasta: ''
   })
 
-  const normalizeLead = (lead) => ({
-    id: lead.ID,
-    nombre: lead.NOMBRE || '',
-    email: lead.EMAIL || '',
-    telefono: lead.TELEFONO || '',
-    fuente: lead.FUENTE || '',
-    pipeline: lead.PRODUCTO_INTERES || '',
-    estado: lead.ESTADO || '',
-    vendedor: lead.VENDEDOR || '',
-    registro: lead.FECHA_REGISTRO || ''
-  })
-
-  const normalizedLeads = leads
-    .filter(lead => lead && lead.ID)
-    .map(normalizeLead)
-
+  // Sincronizar filtro de etapa visual con exportación
   useEffect(() => {
     setExportFilters(prev => ({
       ...prev,
@@ -53,19 +42,58 @@ const Leads = () => {
     }))
   }, [filterStage, filterEstado])
 
-  const filteredLeads = normalizedLeads.filter(lead => {
+  const handleExport = () => {
+    const filtered = leads.filter(lead => {
+      const matchVendedor = !exportFilters.vendedor || lead.vendedor === exportFilters.vendedor
+      const matchPipeline = !exportFilters.pipeline || lead.pipeline === exportFilters.pipeline
+      const matchFuente = !exportFilters.fuente || lead.fuente === exportFilters.fuente
+      const matchEstado = !exportFilters.estado || lead.estado === exportFilters.estado
+
+      const registro = new Date(lead.registro)
+      const desde = exportFilters.desde ? new Date(exportFilters.desde) : null
+      const hasta = exportFilters.hasta ? new Date(exportFilters.hasta) : null
+      const matchFecha = (!desde || registro >= desde) && (!hasta || registro <= hasta)
+
+      return matchVendedor && matchPipeline && matchFuente && matchEstado && matchFecha
+    })
+
+    const csvRows = []
+    const headers = Object.keys(filtered[0] || {}).join(',')
+    csvRows.push(headers)
+
+    filtered.forEach(lead => {
+      const row = Object.values(lead).map(val =>
+        typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
+      ).join(',')
+      csvRows.push(row)
+    })
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'leads_export.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+    setShowExportModal(false)
+  }
+
+  const filteredLeads = leads.filter(lead => {
     const matchesSearch =
       lead.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.telefono.includes(searchTerm)
+
     const matchPipeline = !exportFilters.pipeline || lead.pipeline === exportFilters.pipeline
     const matchFuente = !exportFilters.fuente || lead.fuente === exportFilters.fuente
     const matchVendedor = !exportFilters.vendedor || lead.vendedor === exportFilters.vendedor
     const matchEstado = filterEstado === 'all' || lead.estado === filterEstado
+
     const registro = new Date(lead.registro)
     const desde = exportFilters.desde ? new Date(exportFilters.desde) : null
     const hasta = exportFilters.hasta ? new Date(exportFilters.hasta) : null
     const matchFecha = (!desde || registro >= desde) && (!hasta || registro <= hasta)
+
     return matchesSearch && matchPipeline && matchFuente && matchVendedor && matchFecha && matchEstado
   })
 
@@ -73,57 +101,25 @@ const Leads = () => {
   const start = (currentPage - 1) * itemsPerPage
   const paginatedLeads = filteredLeads.slice(start, start + itemsPerPage)
 
-  const renderEditableCell = (lead, field, value) => {
-    const isEditing = editingCell?.leadId === lead.id && editingCell?.field === field
-    const fieldOptions = options[field] || []
-
-    if (isEditing) {
-      return (
-        <div className="flex items-center space-x-1">
-          {(field === 'fuente' || field === 'pipeline' || field === 'estado' || field === 'vendedor') ? (
-            <select
-              value={editingValue}
-              onChange={(e) => setEditingValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              className="px-2 py-1 border rounded text-sm min-w-[120px]"
-              autoFocus
-            >
-              <option value="">Seleccionar...</option>
-              {fieldOptions.map((option, index) => (
-                <option key={index} value={option}>{option}</option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type="text"
-              value={editingValue}
-              onChange={(e) => setEditingValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              className="px-2 py-1 border rounded text-sm min-w-[120px]"
-              autoFocus
-            />
-          )}
-          <button onClick={handleCellSave} className="text-green-600 hover:text-green-800" title="Guardar">
-            <Check size={14} />
-          </button>
-          <button onClick={handleCellCancel} className="text-red-600 hover:text-red-800" title="Cancelar">
-            <X size={14} />
-          </button>
-        </div>
-      )
+  const getPipelineColor = (pipeline) => {
+    const colors = {
+      'Prospección': 'bg-blue-100 text-blue-800',
+      'Contacto': 'bg-yellow-100 text-yellow-800',
+      'Negociación': 'bg-orange-100 text-orange-800',
+      'Cierre': 'bg-green-100 text-green-800'
     }
-
-    return (
-      <div
-        onClick={() => handleCellClick(lead.id, field, value)}
-        className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition-colors"
-        title="Clic para editar"
-      >
-        {value || '-'}
-      </div>
-    )
+    return colors[pipeline] || 'bg-gray-100 text-gray-800'
   }
 
+  const getEstadoColor = (estado) => {
+    const colors = {
+      'Activo': 'bg-green-100 text-green-800',
+      'Inactivo': 'bg-red-100 text-red-800'
+    }
+    return colors[estado] || 'bg-gray-100 text-gray-800'
+  }
+
+  // Funciones para edición inline
   const handleCellClick = (leadId, field, currentValue) => {
     setEditingCell({ leadId, field })
     setEditingValue(currentValue)
@@ -131,8 +127,10 @@ const Leads = () => {
 
   const handleCellSave = async () => {
     if (!editingCell) return
+
     const { leadId, field } = editingCell
     const leadData = { [field]: editingValue }
+
     try {
       await updateLead(leadId, leadData)
       setEditingCell(null)
@@ -148,8 +146,82 @@ const Leads = () => {
   }
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleCellSave()
-    else if (e.key === 'Escape') handleCellCancel()
+    if (e.key === 'Enter') {
+      handleCellSave()
+    } else if (e.key === 'Escape') {
+      handleCellCancel()
+    }
+  }
+
+  const renderEditableCell = (lead, field, displayValue) => {
+    const isEditing = editingCell?.leadId === lead.id && editingCell?.field === field
+    const fieldOptions = options[field] || []
+
+    if (isEditing) {
+      return (
+        <div className="flex items-center space-x-1">
+          {field === 'fuente' || field === 'pipeline' || field === 'estado' || field === 'vendedor' ? (
+            <select
+              value={editingValue}
+              onChange={(e) => setEditingValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="px-2 py-1 border rounded text-sm min-w-[120px]"
+              autoFocus
+            >
+              <option value="">Seleccionar...</option>
+              {fieldOptions.map((option, index) => (
+                <option key={index} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={editingValue}
+              onChange={(e) => setEditingValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="px-2 py-1 border rounded text-sm min-w-[120px]"
+              autoFocus
+            />
+          )}
+          <button
+            onClick={handleCellSave}
+            className="text-green-600 hover:text-green-800"
+            title="Guardar"
+          >
+            <Check size={14} />
+          </button>
+          <button
+            onClick={handleCellCancel}
+            className="text-red-600 hover:text-red-800"
+            title="Cancelar"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        onClick={() => handleCellClick(lead.id, field, displayValue)}
+        className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+        title="Clic para editar"
+      >
+        {field === 'pipeline' ? (
+          <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getPipelineColor(displayValue)}`}>
+            {displayValue}
+          </span>
+        ) : field === 'estado' ? (
+          <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getEstadoColor(displayValue)}`}>
+            {displayValue}
+          </span>
+        ) : (
+          displayValue || '-'
+        )}
+      </div>
+    )
   }
 
   const handleCreateLead = () => {
@@ -162,6 +234,24 @@ const Leads = () => {
     setShowModal(true)
   }
 
+  const handleSaveLead = async (leadData) => {
+    setModalLoading(true)
+    try {
+      const result = editingLead
+        ? await updateLead(editingLead.id, leadData)
+        : await createLead(leadData)
+
+      if (result.success) {
+        setShowModal(false)
+        setEditingLead(null)
+      }
+    } catch (error) {
+      console.error('Error saving lead:', error)
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
   const handleDeleteLead = async (leadId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este lead?')) {
       await deleteLead(leadId)
@@ -170,59 +260,224 @@ const Leads = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Leads</h1>
-        <Button onClick={handleCreateLead} className="flex items-center gap-2">
-          <Plus size={16} /> Nuevo lead
-        </Button>
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Leads</h1>
+            <p className="text-gray-600">Gestiona todos tus leads y prospectos</p>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={() => setShowExportModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            >
+              📁 Exportar Leads
+            </Button>
+            <Button
+              onClick={handleCreateLead}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+            >
+              <Plus size={20} />
+              <span>Agregar Lead</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, email o teléfono..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Filter size={20} className="text-gray-400" />
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                value={filterStage}
+                onChange={(e) => setFilterStage(e.target.value)}
+              >
+                <option value="all">Todas las etapas</option>
+                {options.pipeline?.map((option, index) => (
+                  <option key={index} value={option}>{option}</option>
+                ))}
+              </select>
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+              >
+                <option value="all">Todos los estados</option>
+                {options.estado?.map((option, index) => (
+                  <option key={index} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <input
+              type="text"
+              placeholder="Filtrar por fuente..."
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-full sm:w-1/3"
+              value={exportFilters.fuente}
+              onChange={(e) => setExportFilters({ ...exportFilters, fuente: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Filtrar por vendedor..."
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-full sm:w-1/3"
+              value={exportFilters.vendedor}
+              onChange={(e) => setExportFilters({ ...exportFilters, vendedor: e.target.value })}
+            />
+            <input
+              type="date"
+              className="border border-gray-300 rounded px-2 py-2 w-full sm:w-1/6"
+              value={exportFilters.desde}
+              onChange={(e) => setExportFilters({ ...exportFilters, desde: e.target.value })}
+            />
+            <input
+              type="date"
+              className="border border-gray-300 rounded px-2 py-2 w-full sm:w-1/6"
+              value={exportFilters.hasta}
+              onChange={(e) => setExportFilters({ ...exportFilters, hasta: e.target.value })}
+            />
+          </div>
+        </div>
       </div>
-      {loading ? (
-        <p>Cargando...</p>
-      ) : error ? (
-        <p className="text-red-500">Error: {error.message}</p>
-      ) : (
-        <div className="overflow-auto rounded border">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-100">
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="p-2">Nombre</th>
-                <th className="p-2">Email</th>
-                <th className="p-2">Teléfono</th>
-                <th className="p-2">Fuente</th>
-                <th className="p-2">Producto</th>
-                <th className="p-2">Estado</th>
-                <th className="p-2">Vendedor</th>
-                <th className="p-2">Registro</th>
-                <th className="p-2">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pipeline</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registro</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {paginatedLeads.map((lead) => (
-                <tr key={lead.id} className="border-t">
-                  <td className="p-2">{renderEditableCell(lead, 'nombre', lead.nombre)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'email', lead.email)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'telefono', lead.telefono)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'fuente', lead.fuente)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'pipeline', lead.pipeline)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'estado', lead.estado)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'vendedor', lead.vendedor)}</td>
-                  <td className="p-2">{renderEditableCell(lead, 'registro', lead.registro)}</td>
-                  <td className="p-2 space-x-2">
-                    <button onClick={() => handleEditLead(lead)} title="Editar">
-                      <Edit size={16} />
-                    </button>
-                    <button onClick={() => handleDeleteLead(lead.id)} title="Eliminar">
-                      <Trash2 size={16} />
-                    </button>
+                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">{lead.nombre}</td>
+                  <td className="px-6 py-4">
+                    {lead.telefono}<br />
+                    <span className="text-gray-500 text-sm">{lead.email}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'fuente', lead.fuente)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'pipeline', lead.pipeline)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'estado', lead.estado)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {renderEditableCell(lead, 'vendedor', lead.vendedor)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {lead.registro ? new Date(lead.registro).toLocaleDateString('es-ES') : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button 
+                        onClick={() => handleEditLead(lead)} 
+                        title="Editar"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteLead(lead.id)} 
+                        title="Eliminar"
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+
+        {/* Pagination */}
+        <div className="bg-white px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+          <div className="flex space-x-2 items-center">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm">Ver:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border px-2 py-1 rounded text-sm"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value={filteredLeads.length}>Todos</option>
+            </select>
+            <span className="text-sm text-gray-600">
+              Mostrando {start + 1} a {Math.min(start + itemsPerPage, filteredLeads.length)} de {filteredLeads.length}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <LeadModal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false)
+          setEditingLead(null)
+        }}
+        onSave={handleSaveLead}
+        lead={editingLead}
+        loading={modalLoading}
+      />
+
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        filters={exportFilters}
+        setFilters={setExportFilters}
+        onExport={handleExport}
+      />
     </div>
   )
 }
 
 export default Leads
+
