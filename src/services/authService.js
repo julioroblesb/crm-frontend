@@ -3,8 +3,8 @@
 const users = [
   {
     id: 1,
-    email: 'admin@crm.com',
-    password: 'password123', // In a real app, this would be a hash.
+    email: 'admin',
+    password: 'contra123', // In a real app, this would be a hash.
     name: 'Admin User',
     role: 'admin',
   },
