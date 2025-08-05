@@ -1,7 +1,20 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, MoreHorizontal } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+
+// Mock Data - In a real app, this would come from an API
+const allLeads = [
+  { id: 1, name: 'Juan Pérez', value: '$5,000', stage: 'prospeccion', company: 'Empresa A', ownerId: 2 },
+  { id: 2, name: 'Ana García', value: '$8,000', stage: 'contacto', company: 'Empresa B', ownerId: 3 },
+  { id: 3, name: 'Luis Martínez', value: '$12,000', stage: 'negociacion', company: 'Empresa C', ownerId: 2 },
+  { id: 4, name: 'Carmen Silva', value: '$15,000', stage: 'cierre', company: 'Empresa D', ownerId: 1 }, // Admin's lead
+  { id: 5, name: 'Pedro López', value: '$3,000', stage: 'prospeccion', company: 'Empresa E', ownerId: 3 },
+  { id: 6, name: 'María Rodríguez', value: '$7,500', stage: 'contacto', company: 'Empresa F', ownerId: null }, // Unassigned
+];
 
 const Pipeline = () => {
+  const { user } = useAuth();
+
   const stages = [
     { id: 'prospeccion', name: 'Prospección', color: 'bg-blue-500' },
     { id: 'contacto', name: 'Contacto', color: 'bg-yellow-500' },
@@ -9,14 +22,13 @@ const Pipeline = () => {
     { id: 'cierre', name: 'Cierre', color: 'bg-green-500' }
   ]
 
-  const leads = [
-    { id: 1, name: 'Juan Pérez', value: '$5,000', stage: 'prospeccion', company: 'Empresa A' },
-    { id: 2, name: 'Ana García', value: '$8,000', stage: 'contacto', company: 'Empresa B' },
-    { id: 3, name: 'Luis Martínez', value: '$12,000', stage: 'negociacion', company: 'Empresa C' },
-    { id: 4, name: 'Carmen Silva', value: '$15,000', stage: 'cierre', company: 'Empresa D' },
-    { id: 5, name: 'Pedro López', value: '$3,000', stage: 'prospeccion', company: 'Empresa E' },
-    { id: 6, name: 'María Rodríguez', value: '$7,500', stage: 'contacto', company: 'Empresa F' }
-  ]
+  const leads = useMemo(() => {
+    if (user?.role === 'admin') {
+      return allLeads;
+    }
+    return allLeads.filter(lead => lead.ownerId === user?.id);
+  }, [user]);
+
 
   const getLeadsByStage = (stageId) => {
     return leads.filter(lead => lead.stage === stageId)

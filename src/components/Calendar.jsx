@@ -1,48 +1,26 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Clock, Phone, Mail } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+
+// Mock Data
+const allTasks = [
+    { id: 1, title: 'Llamar a Juan Pérez', lead: 'Juan Pérez', type: 'call', date: '2025-07-30', time: '10:00', status: 'pending', ownerId: 2 },
+    { id: 2, title: 'Enviar propuesta a Ana García', lead: 'Ana García', type: 'email', date: '2025-07-30', time: '14:30', status: 'completed', ownerId: 3 },
+    { id: 3, title: 'Reunión con Luis Martínez', lead: 'Luis Martínez', type: 'meeting', date: '2025-07-31', time: '11:00', status: 'pending', ownerId: 2 },
+    { id: 4, title: 'Seguimiento Carmen Silva', lead: 'Carmen Silva', type: 'call', date: '2025-08-01', time: '09:30', status: 'pending', ownerId: 1 },
+];
 
 const Calendar = () => {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState('month') // month, week, day
 
-  const tasks = [
-    {
-      id: 1,
-      title: 'Llamar a Juan Pérez',
-      lead: 'Juan Pérez',
-      type: 'call',
-      date: '2025-07-30',
-      time: '10:00',
-      status: 'pending'
-    },
-    {
-      id: 2,
-      title: 'Enviar propuesta a Ana García',
-      lead: 'Ana García',
-      type: 'email',
-      date: '2025-07-30',
-      time: '14:30',
-      status: 'completed'
-    },
-    {
-      id: 3,
-      title: 'Reunión con Luis Martínez',
-      lead: 'Luis Martínez',
-      type: 'meeting',
-      date: '2025-07-31',
-      time: '11:00',
-      status: 'pending'
-    },
-    {
-      id: 4,
-      title: 'Seguimiento Carmen Silva',
-      lead: 'Carmen Silva',
-      type: 'call',
-      date: '2025-08-01',
-      time: '09:30',
-      status: 'pending'
+  const tasks = useMemo(() => {
+    if (user?.role === 'admin') {
+        return allTasks;
     }
-  ]
+    return allTasks.filter(task => task.ownerId === user?.id);
+  }, [user]);
 
   const getTaskIcon = (type) => {
     switch (type) {

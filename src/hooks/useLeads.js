@@ -188,6 +188,28 @@ export const useCobranza = () => {
     }
   }
 
+  const updateCobranzaStatus = async (cobranzaId, status) => {
+    setLoading(true)
+    setError(null)
+    try {
+      // In a real app, you would have an API service method for this.
+      // We are using a mock one we added in mirage.
+      const response = await apiService.updateCobranzaStatus(cobranzaId, status)
+      if (response.success) {
+        await fetchCobranza() // Refresh the list
+        return response
+      } else {
+        setError(response.error)
+        return response
+      }
+    } catch (err) {
+      setError(err.message)
+      return { success: false, error: err.message }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchCobranza()
   }, [])
@@ -196,7 +218,8 @@ export const useCobranza = () => {
     cobranzaData,
     loading,
     error,
-    fetchCobranza
+    fetchCobranza,
+    updateCobranzaStatus
   }
 }
 
