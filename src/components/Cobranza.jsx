@@ -1,64 +1,26 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, Filter, AlertCircle, CheckCircle, Clock, DollarSign } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+
+// Mock Data
+const allCobranzaData = [
+    { id: 1, cliente: 'Juan Pérez', telefono: '+1234567890', email: 'juan@email.com', montoTotal: 15000, montoPendiente: 7500, fechaVenta: '2025-01-15', fechaVencimiento: '2025-02-15', comprobante: 'Sin Comprobante', estado: 'Pendiente', diasVencido: 0, ownerId: 2 },
+    { id: 2, cliente: 'Ana García', telefono: '+1234567891', email: 'ana@email.com', montoTotal: 25000, montoPendiente: 12500, fechaVenta: '2025-01-10', fechaVencimiento: '2025-02-10', comprobante: 'Con Comprobante', estado: 'Vencido', diasVencido: 5, ownerId: 3 },
+    { id: 3, cliente: 'Luis Martínez', telefono: '+1234567892', email: 'luis@email.com', montoTotal: 18000, montoPendiente: 0, fechaVenta: '2025-01-20', fechaVencimiento: '2025-02-20', comprobante: 'Con Comprobante', estado: 'Pagado', diasVencido: 0, ownerId: 2 },
+    { id: 4, cliente: 'Carmen Silva', telefono: '+1234567893', email: 'carmen@email.com', montoTotal: 30000, montoPendiente: 20000, fechaVenta: '2025-01-05', fechaVencimiento: '2025-02-05', comprobante: 'Sin Comprobante', estado: 'Vencido', diasVencido: 10, ownerId: 1 },
+];
 
 const Cobranza = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
 
-  const cobranzaData = [
-    {
-      id: 1,
-      cliente: 'Juan Pérez',
-      telefono: '+1234567890',
-      email: 'juan@email.com',
-      montoTotal: 15000,
-      montoPendiente: 7500,
-      fechaVenta: '2025-01-15',
-      fechaVencimiento: '2025-02-15',
-      comprobante: 'Sin Comprobante',
-      estado: 'Pendiente',
-      diasVencido: 0
-    },
-    {
-      id: 2,
-      cliente: 'Ana García',
-      telefono: '+1234567891',
-      email: 'ana@email.com',
-      montoTotal: 25000,
-      montoPendiente: 12500,
-      fechaVenta: '2025-01-10',
-      fechaVencimiento: '2025-02-10',
-      comprobante: 'Con Comprobante',
-      estado: 'Vencido',
-      diasVencido: 5
-    },
-    {
-      id: 3,
-      cliente: 'Luis Martínez',
-      telefono: '+1234567892',
-      email: 'luis@email.com',
-      montoTotal: 18000,
-      montoPendiente: 0,
-      fechaVenta: '2025-01-20',
-      fechaVencimiento: '2025-02-20',
-      comprobante: 'Con Comprobante',
-      estado: 'Pagado',
-      diasVencido: 0
-    },
-    {
-      id: 4,
-      cliente: 'Carmen Silva',
-      telefono: '+1234567893',
-      email: 'carmen@email.com',
-      montoTotal: 30000,
-      montoPendiente: 20000,
-      fechaVenta: '2025-01-05',
-      fechaVencimiento: '2025-02-05',
-      comprobante: 'Sin Comprobante',
-      estado: 'Vencido',
-      diasVencido: 10
+  const cobranzaData = useMemo(() => {
+    if (user?.role === 'admin') {
+        return allCobranzaData;
     }
-  ]
+    return allCobranzaData.filter(item => item.ownerId === user?.id);
+  }, [user]);
 
   const getStatusColor = (estado) => {
     switch (estado) {
